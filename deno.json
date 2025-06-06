@@ -1,5 +1,13 @@
 {
   "imports": {
     "@std/cli": "jsr:@std/cli@^1.0.19"
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false,
+    "proseWrap": "preserve"
   }
 }
