@@ -53,7 +53,7 @@ class RecipePipeline implements Pipeline<PipelineOutput, RecipeStages> {
   }
 }
 
-const proposer: Proposer<RecipeStages> = async ({ stageName, pastAttempts }): Promise<Prompt> => {
+const proposer: Proposer<RecipeStages> = async ({ stageName, pastAttempts, dataSummary }): Promise<Prompt> => {
   traceLog(`proposer called for stage: ${stageName}`, { pastAttemptsCount: pastAttempts.length });
 
   let systemPrompt = "";
@@ -82,18 +82,25 @@ const proposer: Proposer<RecipeStages> = async ({ stageName, pastAttempts }): Pr
   traceLog("analyzing past attempts", { bestScore, worstScore, attemptCount: pastAttempts.length });
 
   if (stageName === "generate") {
-    systemPrompt =
-      "you are a professional chef. your goal is to improve prompts for writing recipes based on past performance.";
+    systemPrompt = `your goal is to improve prompts for writing recipes based on past performance.
+    
+analyze past prompt performance and the provided output examples to try and determine what makes a good recipe prompt.
+think about why previous prompts succeeded or failed, and how you can improve clarity, specificity, and handling of edge cases.`;
 
     userPrompt = `task: recipe generation
 
 past prompt performance:
 ${performanceAnalysis}
 
+output examples:
+${dataSummary}
+
 best score so far: ${bestScore.toFixed(3)}
 worst score so far: ${worstScore.toFixed(3)}
 
-generate a new, improved system instruction that will achieve higher accuracy than previous attempts. focus on clarity, specificity, and handling edge cases. respond with just the instruction text, no explanation.`;
+generate a new, improved system instruction that will achieve higher accuracy than previous attempts. 
+focus on clarity, specificity, and handling edge cases. 
+respond with just the instruction text, no explanation.`;
   }
 
   traceLog("generating new prompt with llm");
@@ -119,11 +126,128 @@ generate a new, improved system instruction that will achieve higher accuracy th
   };
 };
 
-const evaluator: Evaluator<PipelineOutput> = (outs: PipelineOutput[]) => {
-  const correct = outs.filter((o) => o.predicted === o.target).length;
-  const accuracy = correct / outs.length;
-  traceLog(`evaluation complete: ${correct}/${outs.length} correct (${(accuracy * 100).toFixed(1)}%)`);
-  return accuracy;
+const semanticEvaluator: Evaluator<PipelineOutput> = async (outs: PipelineOutput[]) => {
+  traceLog("starting semantic evaluation");
+  let totalSimilarity = 0;
+
+  for (const out of outs) {
+    const [predictedEmbedding, targetEmbedding] = await Promise.all([
+      openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: out.predicted,
+      }),
+      openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: out.target,
+      }),
+    ]);
+
+    // calculate cosine similarity
+    const pred = predictedEmbedding.data[0].embedding;
+    const target = targetEmbedding.data[0].embedding;
+
+    const dotProduct = pred.reduce((sum, val, i) => sum + val * target[i], 0);
+    const predMagnitude = Math.sqrt(pred.reduce((sum, val) => sum + val * val, 0));
+    const targetMagnitude = Math.sqrt(target.reduce((sum, val) => sum + val * val, 0));
+
+    const similarity = dotProduct / (predMagnitude * targetMagnitude);
+    totalSimilarity += similarity;
+
+    traceLog(`semantic similarity: ${similarity.toFixed(3)}`);
+  }
+
+  const avgSimilarity = totalSimilarity / outs.length;
+  traceLog(`semantic evaluation complete: average similarity ${avgSimilarity.toFixed(3)}`);
+  return avgSimilarity;
+};
+
+const llmEvaluator: Evaluator<PipelineOutput> = async (outs: PipelineOutput[]) => {
+  traceLog("starting llm-based evaluation");
+  let totalScore = 0;
+
+  for (const out of outs) {
+    const evaluation = await openai.responses.parse({
+      model: "gpt-4o-mini",
+      instructions: `you are a culinary expert evaluating recipe quality. 
+      
+      rate the predicted recipe against the target recipe on these criteria:
+      - completeness (has ingredients, tools, steps)
+      - accuracy (correct cooking methods and ingredients)
+      - clarity (easy to follow instructions)
+      - overall usefulness
+      
+      return a score from 0.0 to 1.0 where 1.0 means the predicted recipe is as good as or better than the target.`,
+      input: [{
+        role: "user" as const,
+        content: `target recipe:\n${out.target}\n\npredicted recipe:\n${out.predicted}`,
+      }],
+      temperature: 0,
+      text: {
+        format: zodTextFormat(z.object({ score: z.number().min(0).max(1) }), "evaluation"),
+      },
+    });
+
+    const score = evaluation.output_parsed?.score ?? 0;
+    totalScore += score;
+    traceLog(`llm evaluation score: ${score.toFixed(3)}`);
+  }
+
+  const avgScore = totalScore / outs.length;
+  traceLog(`llm evaluation complete: average score ${avgScore.toFixed(3)}`);
+  return avgScore;
+};
+
+const hybridEvaluator: Evaluator<PipelineOutput> = async (outs: PipelineOutput[]) => {
+  traceLog("starting hybrid evaluation");
+
+  // structural completeness check
+  const structuralScores = outs.map((out) => {
+    const predicted = out.predicted.toLowerCase();
+    let score = 0;
+
+    // check for key recipe sections
+    if (predicted.includes("ingredient") || predicted.includes("*")) score += 0.25;
+    if (predicted.includes("step") || predicted.includes("1.") || predicted.includes("2.")) score += 0.25;
+    if (predicted.includes("tool") || predicted.includes("pan") || predicted.includes("bowl")) score += 0.25;
+    if (predicted.length > 100) score += 0.25; // reasonable length
+
+    traceLog(`structural score: ${score.toFixed(3)}`);
+    return score;
+  });
+
+  // semantic similarity (simplified version)
+  const semanticScores = await Promise.all(
+    outs.map(async (out) => {
+      const evaluation = await openai.responses.parse({
+        model: "gpt-4o-mini",
+        instructions: "rate how semantically similar these two recipes are. return a score from 0.0 to 1.0.",
+        input: [{
+          role: "user" as const,
+          content: `recipe 1:\n${out.target}\n\nrecipe 2:\n${out.predicted}`,
+        }],
+        temperature: 0,
+        text: {
+          format: zodTextFormat(z.object({ similarity: z.number().min(0).max(1) }), "similarity"),
+        },
+      });
+
+      return evaluation.output_parsed?.similarity ?? 0;
+    }),
+  );
+
+  // combine scores (weighted average)
+  const finalScores = structuralScores.map((structural, i) => {
+    const semantic = semanticScores[i];
+    const combined = (structural * 0.3) + (semantic * 0.7);
+    traceLog(
+      `combined score: ${combined.toFixed(3)} (structural: ${structural.toFixed(3)}, semantic: ${semantic.toFixed(3)})`,
+    );
+    return combined;
+  });
+
+  const avgScore = finalScores.reduce((sum, score) => sum + score, 0) / finalScores.length;
+  traceLog(`hybrid evaluation complete: average score ${avgScore.toFixed(3)}`);
+  return avgScore;
 };
 
 async function getData(): Promise<Item[]> {
@@ -153,9 +277,9 @@ export default async function recipe() {
   const mipro = new MIPROv2(
     new RecipePipeline(),
     proposer,
-    evaluator,
+    semanticEvaluator,
     data,
-    { maxIterations: 20, batchSize: 3 },
+    { maxIterations: 3, batchSize: 3 },
   );
 
   const initialPrompts: Record<RecipeStages, Prompt> = {
