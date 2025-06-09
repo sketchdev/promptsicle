@@ -1,9 +1,10 @@
+import { parse } from "jsr:@std/yaml";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import { Evaluator, MIPROv2, Pipeline, Prompt, Proposer } from "../mipro.ts";
+import { Evaluator, MIPROv2, Pipeline, Prompt, Proposer } from "../../mipro.ts";
 
-type PipelineOutput = { predicted: string; target: string; explanation: string };
+type PipelineOutput = { predicted: string; target: string };
 type Item = { text: string; target: string };
 
 /** utility function for consistent trace logging */
@@ -15,26 +16,13 @@ function traceLog(message: string, data?: unknown) {
   }
 }
 
-const data: Item[] = [
-  { text: "I loved this movie, it was fantastic", target: "positive" },
-  { text: "The plot was boring and slow", target: "negative" },
-  { text: "It was just okay, nothing special", target: "neutral" },
-  { text: "Absolutely wonderful experience", target: "positive" },
-  { text: "Terrible acting and awful script", target: "negative" },
-  { text: "The new update changed everything in a way I never expected.", target: "negative" },
-  { text: "I can't believe bad guy won!", target: "negative" },
-  { text: "Well, that meeting was interesting, to say the least.", target: "negative" },
-  { text: "He smiled after reading the report, then quietly walked out without a word.", target: "negative" },
-  { text: "Your cooking tonight was truly something special.", target: "positive" },
-];
-
 const openai = new OpenAI();
 
-type RecipeStages = "generate" | "explain";
+type RecipeStages = "generate";
 
 class RecipePipeline implements Pipeline<PipelineOutput, RecipeStages> {
   stageNames(): readonly RecipeStages[] {
-    return ["generate", "explain"] as const;
+    return ["generate"] as const;
   }
 
   async run(item: Item, prompts: Record<RecipeStages, Prompt>): Promise<PipelineOutput> {
@@ -59,19 +47,8 @@ class RecipePipeline implements Pipeline<PipelineOutput, RecipeStages> {
     const predicted = labelResp.output_text.trim().toLowerCase();
     traceLog(`label stage result: ${predicted} (target: ${item.target})`);
 
-    const explainPrompt = prompts.explain.instruction;
-    traceLog("calling explain stage", { instruction: explainPrompt.slice(0, 100) + "..." });
-    const expResp = await openai.responses.create({
-      model: "gpt-4o-mini",
-      instructions: explainPrompt,
-      input: [
-        { role: "user" as const, content: `Text: "${item.text}"\Output: ${predicted}` },
-      ],
-      temperature: 0.7,
-    });
-
-    const result: PipelineOutput = { predicted, target: item.target, explanation: expResp.output_text.trim() };
-    traceLog("pipeline complete", { predicted, target: item.target, explanationLength: result.explanation.length });
+    const result: PipelineOutput = { predicted, target: item.target };
+    traceLog("pipeline complete", result);
     return result;
   }
 }
@@ -85,20 +62,12 @@ const proposer: Proposer<RecipeStages> = async ({ stageName, pastAttempts }): Pr
   if (pastAttempts.length === 0) {
     traceLog("using base prompt for first iteration");
     // first iteration - just return the base prompt
-    const basePrompts = {
-      generate:
-        "Classify the sentiment of the text as positive, negative, or neutral. Respond with the single word label.",
-      explain: "Explain in one sentence why the given label fits the text.",
+    const baseInstructions: Record<RecipeStages, string> = {
+      generate: "Create a recipe for the dish provided",
     };
     return {
-      instruction: basePrompts[stageName as keyof typeof basePrompts],
-      examples: stageName === "generate"
-        ? [
-          { input: "I adore this song", output: "positive" },
-          { input: "This meal tastes awful", output: "negative" },
-          { input: "It is an average day", output: "neutral" },
-        ]
-        : [],
+      instruction: baseInstructions[stageName as keyof typeof baseInstructions],
+      examples: [],
     };
   }
 
@@ -114,15 +83,9 @@ const proposer: Proposer<RecipeStages> = async ({ stageName, pastAttempts }): Pr
 
   if (stageName === "generate") {
     systemPrompt =
-      `you are an expert prompt engineer specializing in text classification tasks. your goal is to improve prompts for sentiment classification that achieve higher accuracy.
+      "you are a professional chef. your goal is to improve prompts for writing recipes based on past performance.";
 
-key requirements:
-- the output must be exactly one word: "positive", "negative", or "neutral"
-- the prompt should be clear and unambiguous
-- consider edge cases and nuanced language
-- maintain consistency across different text types`;
-
-    userPrompt = `task: sentiment classification (positive/negative/neutral)
+    userPrompt = `task: recipe generation
 
 past prompt performance:
 ${performanceAnalysis}
@@ -131,25 +94,6 @@ best score so far: ${bestScore.toFixed(3)}
 worst score so far: ${worstScore.toFixed(3)}
 
 generate a new, improved system instruction that will achieve higher accuracy than previous attempts. focus on clarity, specificity, and handling edge cases. respond with just the instruction text, no explanation.`;
-  } else {
-    systemPrompt =
-      `you are an expert prompt engineer specializing in explanation generation. your goal is to improve prompts that generate clear, concise explanations for sentiment classifications.
-
-key requirements:
-- explanations should be exactly one sentence
-- should clearly connect the text content to the predicted label
-- should be informative and specific
-- should help users understand the reasoning`;
-
-    userPrompt = `task: generate explanations for sentiment classification results
-
-past prompt performance:
-${performanceAnalysis}
-
-best score so far: ${bestScore.toFixed(3)}
-worst score so far: ${worstScore.toFixed(3)}
-
-generate a new, improved system instruction for creating explanations. the explanations should be more helpful and accurate than previous attempts. respond with just the instruction text, no explanation.`;
   }
 
   traceLog("generating new prompt with llm");
@@ -171,13 +115,7 @@ generate a new, improved system instruction for creating explanations. the expla
 
   return {
     instruction: newInstruction,
-    examples: stageName === "generate"
-      ? [
-        { input: "I adore this song", output: "positive" },
-        { input: "This meal tastes awful", output: "negative" },
-        { input: "It is an average day", output: "neutral" },
-      ]
-      : [],
+    examples: [],
   };
 };
 
@@ -188,7 +126,28 @@ const evaluator: Evaluator<PipelineOutput> = (outs: PipelineOutput[]) => {
   return accuracy;
 };
 
+async function getData(): Promise<Item[]> {
+  traceLog("loading recipe data");
+  const data: Item[] = [];
+
+  for await (const file of Deno.readDir("./examples/recipe/data")) {
+    if (file.isFile && file.name.endsWith(".yaml")) {
+      const filePath = `./examples/recipe/data/${file.name}`;
+      const content = Deno.readTextFileSync(filePath);
+      const item = parse(content) as Item;
+      if (item) {
+        data.push(item);
+      } else {
+        throw new Error(`Invalid data format in file ${filePath}`);
+      }
+    }
+  }
+  return data;
+}
+
 export default async function recipe() {
+  const data = await getData();
+
   traceLog("starting miprov2 optimization", { maxIterations: 20, batchSize: 3, dataSize: data.length });
 
   const mipro = new MIPROv2(
@@ -201,11 +160,7 @@ export default async function recipe() {
 
   const initialPrompts: Record<RecipeStages, Prompt> = {
     generate: {
-      instruction: "Classify the sentiment of the text.",
-      examples: [],
-    },
-    explain: {
-      instruction: "Explain the sentiment in one concise sentence.",
+      instruction: "Create a recipe for the dish provided",
       examples: [],
     },
   };
@@ -214,7 +169,6 @@ export default async function recipe() {
 
   const best = await mipro.compile(initialPrompts);
 
-  traceLog("optimization complete - best prompts found:");
-  console.log("Best label instruction:", best.generate.instruction);
-  console.log("Best explain instruction:", best.explain.instruction);
+  traceLog("optimization complete - best prompt found:");
+  console.log("Best instruction:", best.generate.instruction);
 }

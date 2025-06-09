@@ -1,5 +1,5 @@
 import { parseArgs } from "jsr:@std/cli/parse-args";
-import sentiment from "./examples/sentiment.ts";
+import recipe from "./examples/recipe/recipe.ts";
 
 const args = parseArgs(Deno.args, {
   alias: {
@@ -16,6 +16,6 @@ if (args.help) {
   Deno.exit(0);
 }
 
-await sentiment();
+await recipe();
 // await run(config.trainFolder, config.testFolder);
 console.log("promptsicle completed successfully.");
