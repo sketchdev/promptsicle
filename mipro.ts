@@ -24,16 +24,16 @@ export interface Prompt {
   examples: Example[];
 }
 
-export interface Pipeline<T> {
+export interface Pipeline<T, TStages extends string = string> {
   /**
    * Execute the pipeline on a single piece of input data with the supplied prompts and return the model output.
    */
-  run(input: unknown, prompts: Record<string, Prompt>): Promise<T>;
+  run(input: unknown, prompts: Record<TStages, Prompt>): Promise<T>;
 
   /**
    * The names of the stages in deterministic order so the optimiser can address them.
    */
-  stageNames(): string[];
+  stageNames(): readonly TStages[];
 }
 
 /**
@@ -44,14 +44,14 @@ export type Evaluator<T> = (outputs: T[]) => number;
 /**
  * Proposer returns a new Prompt for a given module when supplied with grounding context.
  */
-export interface ProposerContext {
-  stageName: string;
+export interface ProposerContext<TStages extends string = string> {
+  stageName: TStages;
   dataSummary: string;
   programSummary: string;
   pastAttempts: Array<{ prompt: Prompt; score: number }>;
 }
 
-export type Proposer = (ctx: ProposerContext) => Promise<Prompt>;
+export type Proposer<TStages extends string = string> = (ctx: ProposerContext<TStages>) => Promise<Prompt>;
 
 /* --------------------------------- Surrogate --------------------------------- */
 
@@ -129,9 +129,9 @@ export interface MIPROOptions {
   randomSeed?: number;
 }
 
-export class MIPROv2<T> {
-  private readonly pipeline: Pipeline<T>;
-  private readonly proposer: Proposer;
+export class MIPROv2<T, TStages extends string = string> {
+  private readonly pipeline: Pipeline<T, TStages>;
+  private readonly proposer: Proposer<TStages>;
   private readonly evaluator: Evaluator<T>;
   private readonly data: unknown[];
   private readonly opts: Required<MIPROOptions>;
@@ -139,8 +139,8 @@ export class MIPROv2<T> {
   private readonly surrogates: Record<string, Surrogate> = {};
 
   constructor(
-    pipeline: Pipeline<T>,
-    proposer: Proposer,
+    pipeline: Pipeline<T, TStages>,
+    proposer: Proposer<TStages>,
     evaluator: Evaluator<T>,
     data: unknown[],
     opts: MIPROOptions = {},
@@ -164,13 +164,14 @@ export class MIPROv2<T> {
   /**
    * Optimise prompts for all modules and return the best set discovered.
    */
-  async compile(initialPrompts: Record<string, Prompt>): Promise<Record<string, Prompt>> {
+  async compile(initialPrompts: Record<TStages, Prompt>): Promise<Record<TStages, Prompt>> {
     let best: Trial = { iteration: -1, prompts: initialPrompts, score: -Infinity };
 
     for (let iter = 0; iter < this.opts.maxIterations; iter++) {
       const stage = this.selectStage();
       const candidatePrompt = await this.proposePrompt(stage, best.prompts);
-      const candidatePrompts = { ...best.prompts, [stage]: candidatePrompt };
+      const candidatePrompts = { ...best.prompts } as Record<TStages, Prompt>;
+      candidatePrompts[stage] = candidatePrompt;
       const score = await this.evaluatePrompts(candidatePrompts);
 
       const trial: Trial = { iteration: iter, prompts: candidatePrompts, score };
@@ -187,7 +188,7 @@ export class MIPROv2<T> {
 
   /* ----------------------------- Internals ----------------------------- */
 
-  private selectStage(): string {
+  private selectStage(): TStages {
     // Use surrogate utilities to build a categorical distribution over stages.
     const utils = this.pipeline.stageNames().map((stage) => {
       const lastScore = this.history.length ? this.history[this.history.length - 1].score : 0;
@@ -204,11 +205,11 @@ export class MIPROv2<T> {
     return this.pipeline.stageNames()[idx];
   }
 
-  private proposePrompt(stage: string, current: Record<string, Prompt>): Promise<Prompt> {
+  private proposePrompt(stage: TStages, current: Record<TStages, Prompt>): Promise<Prompt> {
     void current;
 
     const past = this.history.map((h) => ({ prompt: h.prompts[stage], score: h.score }));
-    const ctx: ProposerContext = {
+    const ctx: ProposerContext<TStages> = {
       stageName: stage,
       dataSummary: this.summariseData(),
       programSummary: this.summariseProgram(),
@@ -217,7 +218,7 @@ export class MIPROv2<T> {
     return this.proposer(ctx);
   }
 
-  private async evaluatePrompts(prompts: Record<string, Prompt>): Promise<number> {
+  private async evaluatePrompts(prompts: Record<TStages, Prompt>): Promise<number> {
     const batch = sampleArray(this.data, this.opts.batchSize);
     const outputs = [];
     for (const item of batch) {

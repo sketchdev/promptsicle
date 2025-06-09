@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import { Evaluator, MIPROv2, Pipeline, Prompt, Proposer } from "./mipro.ts";
+import { Evaluator, MIPROv2, Pipeline, Prompt, Proposer } from "../mipro.ts";
 
 type RunOutput = { predicted: string; target: string; explanation: string };
 type Item = { text: string; target: string };
@@ -77,7 +77,6 @@ class SentimentPipeline implements Pipeline<RunOutput> {
   }
 }
 
-/** Very lightweight proposer that appends a version counter to the instruction. */
 const proposer: Proposer = async ({ stageName, pastAttempts }) => {
   traceLog(`proposer called for stage: ${stageName}`, { pastAttemptsCount: pastAttempts.length });
 
@@ -191,7 +190,7 @@ const evaluator: Evaluator<RunOutput> = (outs: RunOutput[]) => {
   return accuracy;
 };
 
-export default async function quickstart() {
+export default async function sentiment() {
   traceLog("starting miprov2 optimization", { maxIterations: 20, batchSize: 3, dataSize: data.length });
 
   const mipro = new MIPROv2(
