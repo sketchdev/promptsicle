@@ -6,6 +6,15 @@ import { Evaluator, MIPROv2, Pipeline, Prompt, Proposer } from "./mipro.ts";
 type RunOutput = { predicted: string; target: string; explanation: string };
 type Item = { text: string; target: string };
 
+/** utility function for consistent trace logging */
+function traceLog(message: string, data?: unknown) {
+  const timestamp = new Date().toISOString().slice(11, 23);
+  console.log(`[${timestamp}] ${message}`);
+  if (data !== undefined) {
+    console.log(`  └─ ${JSON.stringify(data, null, 2)}`);
+  }
+}
+
 const data: Item[] = [
   { text: "I loved this movie, it was fantastic", target: "positive" },
   { text: "The plot was boring and slow", target: "negative" },
@@ -28,6 +37,8 @@ class SentimentPipeline implements Pipeline<RunOutput> {
   }
 
   async run(item: Item, prompts: Record<string, Prompt>) {
+    traceLog(`pipeline running for item: "${item.text.slice(0, 50)}..."`);
+
     const { instruction, examples } = prompts.label;
 
     const labelMessages: OpenAI.Responses.EasyInputMessage[] = [
@@ -38,6 +49,7 @@ class SentimentPipeline implements Pipeline<RunOutput> {
       { role: "user" as const, content: item.text },
     ];
 
+    traceLog("calling label stage", { instruction: instruction.slice(0, 100) + "..." });
     const labelResp = await openai.responses.create({
       model: "gpt-4o-mini",
       instructions: instruction,
@@ -46,8 +58,10 @@ class SentimentPipeline implements Pipeline<RunOutput> {
     });
 
     const predicted = labelResp.output_text.trim().toLowerCase();
+    traceLog(`label stage result: ${predicted} (target: ${item.target})`);
 
     const explainPrompt = prompts.explain.instruction;
+    traceLog("calling explain stage", { instruction: explainPrompt.slice(0, 100) + "..." });
     const expResp = await openai.responses.create({
       model: "gpt-4o-mini",
       instructions: explainPrompt,
@@ -57,12 +71,16 @@ class SentimentPipeline implements Pipeline<RunOutput> {
       temperature: 0.7,
     });
 
-    return { predicted, target: item.target, explanation: expResp.output_text.trim() };
+    const result = { predicted, target: item.target, explanation: expResp.output_text.trim() };
+    traceLog("pipeline complete", { predicted, target: item.target, explanationLength: result.explanation.length });
+    return result;
   }
 }
 
 /** Very lightweight proposer that appends a version counter to the instruction. */
 const proposer: Proposer = async ({ stageName, pastAttempts }) => {
+  traceLog(`proposer called for stage: ${stageName}`, { pastAttemptsCount: pastAttempts.length });
+
   const basePrompts = {
     label: "Classify the sentiment of the text as positive, negative, or neutral. Respond with the single word label.",
     explain: "Explain in one sentence why the given label fits the text.",
@@ -72,6 +90,7 @@ const proposer: Proposer = async ({ stageName, pastAttempts }) => {
   let userPrompt = "";
 
   if (pastAttempts.length === 0) {
+    traceLog("using base prompt for first iteration");
     // first iteration - just return the base prompt
     return {
       instruction: basePrompts[stageName as keyof typeof basePrompts],
@@ -92,6 +111,8 @@ const proposer: Proposer = async ({ stageName, pastAttempts }) => {
 
   const bestScore = Math.max(...pastAttempts.map((a) => a.score));
   const worstScore = Math.min(...pastAttempts.map((a) => a.score));
+
+  traceLog("analyzing past attempts", { bestScore, worstScore, attemptCount: pastAttempts.length });
 
   if (stageName === "label") {
     systemPrompt =
@@ -133,6 +154,7 @@ worst score so far: ${worstScore.toFixed(3)}
 generate a new, improved system instruction for creating explanations. the explanations should be more helpful and accurate than previous attempts. respond with just the instruction text, no explanation.`;
   }
 
+  traceLog("generating new prompt with llm");
   const responseSchema = z.object({ new_instruction: z.string() });
   const response = await openai.responses.parse({
     model: "gpt-4o-mini",
@@ -146,8 +168,11 @@ generate a new, improved system instruction for creating explanations. the expla
     throw new Error("Failed to parse response from OpenAI");
   }
 
+  const newInstruction = response.output_parsed.new_instruction;
+  traceLog("new prompt generated", { stage: stageName, instructionLength: newInstruction.length });
+
   return {
-    instruction: response.output_parsed.new_instruction,
+    instruction: newInstruction,
     examples: stageName === "label"
       ? [
         { input: "I adore this song", output: "positive" },
@@ -161,10 +186,14 @@ generate a new, improved system instruction for creating explanations. the expla
 /** Accuracy‑style evaluator. */
 const evaluator: Evaluator<RunOutput> = (outs: RunOutput[]) => {
   const correct = outs.filter((o) => o.predicted === o.target).length;
-  return correct / outs.length;
+  const accuracy = correct / outs.length;
+  traceLog(`evaluation complete: ${correct}/${outs.length} correct (${(accuracy * 100).toFixed(1)}%)`);
+  return accuracy;
 };
 
 export default async function quickstart() {
+  traceLog("starting miprov2 optimization", { maxIterations: 20, batchSize: 3, dataSize: data.length });
+
   const mipro = new MIPROv2(
     new SentimentPipeline(),
     proposer,
@@ -173,7 +202,7 @@ export default async function quickstart() {
     { maxIterations: 20, batchSize: 3 },
   );
 
-  const best = await mipro.compile({
+  const initialPrompts = {
     label: {
       instruction: "Classify the sentiment of the text.",
       examples: [],
@@ -182,8 +211,13 @@ export default async function quickstart() {
       instruction: "Explain the sentiment in one concise sentence.",
       examples: [],
     },
-  });
+  };
 
+  traceLog("starting compilation with initial prompts", initialPrompts);
+
+  const best = await mipro.compile(initialPrompts);
+
+  traceLog("optimization complete - best prompts found:");
   console.log("Best label instruction:", best.label.instruction);
   console.log("Best explain instruction:", best.explain.instruction);
 }
