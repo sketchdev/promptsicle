@@ -205,6 +205,8 @@ export class MIPROv2<T> {
   }
 
   private proposePrompt(stage: string, current: Record<string, Prompt>): Promise<Prompt> {
+    void current;
+
     const past = this.history.map((h) => ({ prompt: h.prompts[stage], score: h.score }));
     const ctx: ProposerContext = {
       stageName: stage,
