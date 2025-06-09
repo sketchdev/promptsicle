@@ -1,62 +1,37 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@openai/openai@^4.102.0": "4.102.0",
     "jsr:@std/cli@*": "1.0.19",
     "jsr:@std/cli@^1.0.19": "1.0.19",
-    "npm:@types/node@20": "20.19.0",
-    "npm:openai@^5.1.1": "5.1.1_zod@3.25.56",
-    "npm:prettier@^2.8.8": "2.8.8",
-    "npm:typescript@5": "5.8.3",
-    "npm:zod@^3.25.55": "3.25.56"
+    "npm:zod@3": "3.25.56",
+    "npm:zod@^3.25.56": "3.25.56"
   },
   "jsr": {
+    "@openai/openai@4.102.0": {
+      "integrity": "ea5201bc5c8a696d3a5139a9cd2252e3ab9b2b880769a9cd7f05602ea1a02acf",
+      "dependencies": [
+        "npm:zod@3"
+      ]
+    },
     "@std/cli@1.0.19": {
       "integrity": "b3601a54891f89f3f738023af11960c4e6f7a45dc76cde39a6861124cba79e88"
     }
   },
   "npm": {
-    "@types/node@20.19.0": {
-      "integrity": "sha512-hfrc+1tud1xcdVTABC2JiomZJEklMcXYNTVtZLAeqTVWD+qL5jkHKT+1lOtqDdGxt+mB53DTtiz673vfjU8D1Q==",
-      "dependencies": [
-        "undici-types"
-      ]
-    },
-    "openai@5.1.1_zod@3.25.56": {
-      "integrity": "sha512-lgIdLqvpLpz8xPUKcEIV6ml+by74mbSBz8zv/AHHebtLn/WdpH4kdXT3/Q5uUKDHg3vHV/z9+G9wZINRX6rkDg==",
-      "dependencies": [
-        "zod"
-      ],
-      "optionalPeers": [
-        "zod"
-      ],
-      "bin": true
-    },
-    "prettier@2.8.8": {
-      "integrity": "sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==",
-      "bin": true
-    },
-    "typescript@5.8.3": {
-      "integrity": "sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==",
-      "bin": true
-    },
-    "undici-types@6.21.0": {
-      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="
-    },
     "zod@3.25.56": {
       "integrity": "sha512-rd6eEF3BTNvQnR2e2wwolfTmUTnp70aUTqr0oaGbHifzC3BKJsoV+Gat8vxUMR1hwOKBs6El+qWehrHbCpW6SQ=="
     }
   },
   "workspace": {
     "dependencies": [
-      "jsr:@std/cli@^1.0.19"
+      "jsr:@openai/openai@^4.102.0",
+      "jsr:@std/cli@^1.0.19",
+      "npm:zod@^3.25.56"
     ],
     "packageJson": {
       "dependencies": [
-        "npm:@types/node@20",
-        "npm:openai@^5.1.1",
-        "npm:prettier@^2.8.8",
-        "npm:typescript@5",
-        "npm:zod@^3.25.55"
+        "npm:zod@^3.25.56"
       ]
     }
   }

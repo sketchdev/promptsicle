@@ -10,5 +10,8 @@
     "compile:linux": "deno compile --target x86_64-unknown-linux-gnu --output ./bin/linux/promptsicle ./main.ts",
     "compile:windows": "deno compile --target x86_64-pc-windows-msvc --output ./bin/windows/promptsicle.exe ./main.ts",
     "compile": "npm run compile:mac && npm run compile:linux && npm run compile:windows"
+  },
+  "dependencies": {
+    "zod": "^3.25.56"
   }
 }
