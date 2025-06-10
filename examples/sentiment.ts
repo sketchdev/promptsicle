@@ -214,7 +214,7 @@ export default async function sentiment() {
 
   traceLog("starting compilation with initial prompts", initialPrompts);
 
-  const best = await mipro.compile(initialPrompts);
+  const best = await mipro.optimize(initialPrompts);
 
   traceLog("optimization complete - best prompts found:");
   console.log("Best label instruction:", best.label.instruction);

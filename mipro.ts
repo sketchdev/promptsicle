@@ -99,6 +99,7 @@ export class MIPROv2<T, TStages extends string = string> {
   private readonly history: Trial[] = [];
   private readonly surrogates: Record<string, Surrogate> = {};
   private readonly initialPrompts: Record<TStages, Prompt>;
+  private readonly outputter: (prompts: Record<TStages, Prompt>) => void;
   private data: unknown[] = [];
 
   constructor(
@@ -107,6 +108,7 @@ export class MIPROv2<T, TStages extends string = string> {
     proposer: Proposer<TStages>,
     evaluator: Evaluator<T>,
     initialPrompts: Record<TStages, Prompt> = {} as Record<TStages, Prompt>,
+    outputter: (prompts: Record<TStages, Prompt>) => void = () => {},
     opts: MIPROOptions = {},
   ) {
     this.pipeline = pipeline;
@@ -114,6 +116,7 @@ export class MIPROv2<T, TStages extends string = string> {
     this.proposer = proposer;
     this.evaluator = evaluator;
     this.initialPrompts = initialPrompts;
+    this.outputter = outputter;
     this.opts = {
       maxIterations: opts.maxIterations ?? 100,
       batchSize: opts.batchSize ?? 8,
@@ -129,7 +132,7 @@ export class MIPROv2<T, TStages extends string = string> {
   /**
    * Optimise prompts for all modules and return the best set discovered.
    */
-  async compile(): Promise<Record<TStages, Prompt>> {
+  async optimize(): Promise<void> {
     this.data = await this.loader();
 
     let best: Trial = { iteration: -1, prompts: this.initialPrompts, score: -Infinity };
@@ -150,7 +153,8 @@ export class MIPROv2<T, TStages extends string = string> {
         console.log(`MIPROv2 improved to ${score.toFixed(4)} at iteration ${iter}`);
       }
     }
-    return best.prompts;
+
+    this.outputter(best.prompts);
   }
 
   /* ----------------------------- Internals ----------------------------- */

@@ -2,7 +2,7 @@ import { DataLoader, Item } from "@/types.ts";
 import * as path from "jsr:@std/path";
 import { parse } from "jsr:@std/yaml";
 
-export function yamlLoader(dir: string): DataLoader {
+export function yamlFileLoader(dir: string): DataLoader {
   return async (): Promise<Item[]> => {
     const data: Item[] = [];
 
