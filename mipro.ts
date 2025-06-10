@@ -12,7 +12,7 @@
  * exploration until it has enough samples to fit the model, then it steadily shifts toward exploitation.
  */
 
-import { DataLoader, Evaluator, Outputter, Pipeline, Prompt, Proposer, ProposerContext } from "@/types.ts";
+import { DataLoader, Evaluator, Item, Outputter, Prompt, Proposer, ProposerContext, Runner } from "@/types.ts";
 
 /* --------------------------------- Surrogate --------------------------------- */
 
@@ -92,7 +92,8 @@ export interface MIPROOptions {
 
 export class MIPROv2<T, TStages extends string = string> {
   private readonly loader: DataLoader;
-  private readonly pipeline: Pipeline<T, TStages>;
+  private readonly stages: TStages[];
+  private readonly runner: Runner<T, TStages>;
   private readonly proposer: Proposer<TStages>;
   private readonly evaluator: Evaluator<T>;
   private readonly opts: Required<MIPROOptions>;
@@ -100,10 +101,11 @@ export class MIPROv2<T, TStages extends string = string> {
   private readonly surrogates: Record<string, Surrogate> = {};
   private readonly initialPrompts: Record<TStages, Prompt>;
   private readonly outputter: Outputter<TStages>;
-  private data: unknown[] = [];
+  private data: Item[] = [];
 
   constructor(
-    pipeline: Pipeline<T, TStages>,
+    stages: TStages[],
+    runner: Runner<T, TStages>,
     loader: DataLoader,
     proposer: Proposer<TStages>,
     evaluator: Evaluator<T>,
@@ -111,7 +113,8 @@ export class MIPROv2<T, TStages extends string = string> {
     outputter: Outputter<TStages>,
     opts: MIPROOptions = {},
   ) {
-    this.pipeline = pipeline;
+    this.stages = stages;
+    this.runner = runner;
     this.loader = loader;
     this.proposer = proposer;
     this.evaluator = evaluator;
@@ -123,7 +126,7 @@ export class MIPROv2<T, TStages extends string = string> {
       randomSeed: opts.randomSeed ?? Date.now(),
     };
 
-    for (const stage of this.pipeline.stageNames()) {
+    for (const stage of this.stages) {
       this.surrogates[stage] = new Surrogate();
     }
     seedRandom(this.opts.randomSeed);
@@ -161,7 +164,7 @@ export class MIPROv2<T, TStages extends string = string> {
 
   private selectStage(): TStages {
     // Use surrogate utilities to build a categorical distribution over stages.
-    const utils = this.pipeline.stageNames().map((stage) => {
+    const utils = this.stages.map((stage) => {
       const lastScore = this.history.length ? this.history[this.history.length - 1].score : 0;
       return this.surrogates[stage].utility(lastScore);
     });
@@ -170,10 +173,10 @@ export class MIPROv2<T, TStages extends string = string> {
     let acc = 0;
     for (let i = 0; i < utils.length; i++) {
       acc += utils[i];
-      if (r <= acc) return this.pipeline.stageNames()[i];
+      if (r <= acc) return this.stages[i];
     }
-    const idx = Math.floor(Math.random() * this.pipeline.stageNames().length);
-    return this.pipeline.stageNames()[idx];
+    const idx = Math.floor(Math.random() * this.stages.length);
+    return this.stages[idx];
   }
 
   private proposePrompt(
@@ -196,9 +199,10 @@ export class MIPROv2<T, TStages extends string = string> {
 
   private async evaluatePrompts(prompts: Record<TStages, Prompt>): Promise<number> {
     const batch = sampleArray(this.data, this.opts.batchSize);
-    const outputs = [];
+    const outputs: T[] = [];
     for (const item of batch) {
-      outputs.push(await this.pipeline.run(item, prompts));
+      const x = await this.runner(item, prompts);
+      outputs.push(x);
     }
     return this.evaluator(outputs);
   }
@@ -210,7 +214,7 @@ export class MIPROv2<T, TStages extends string = string> {
   }
 
   private summariseProgram(): string {
-    return `Program stages: ${this.pipeline.stageNames().join(", ")}`;
+    return `Program stages: ${this.stages.join(", ")}`;
   }
 }
 

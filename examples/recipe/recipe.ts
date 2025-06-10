@@ -1,13 +1,15 @@
 import { semanticEvaluator } from "@/evaluators.ts";
 import { yamlFileLoader } from "@/loaders.ts";
 import { MIPROv2 } from "@/mipro.ts";
-import { SingleStagePipeline, singleStagePromptBuilder } from "@/pipelines.ts";
+import { singleStagePromptBuilder } from "@/pipelines.ts";
 import { llmProposer } from "@/proposers.ts";
 import { consoleOutputter } from "../../output.ts";
+import { singleStageRunner } from "../../runners.ts";
 
 export default async function recipe() {
   const mipro = new MIPROv2(
-    new SingleStagePipeline(),
+    ["generate"],
+    singleStageRunner(),
     yamlFileLoader("./examples/recipe/data"),
     llmProposer("recipe generation"),
     semanticEvaluator,
