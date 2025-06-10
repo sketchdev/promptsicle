@@ -4,6 +4,7 @@
     "jsr:@openai/openai@^4.102.0": "4.102.0",
     "jsr:@std/cli@*": "1.0.19",
     "jsr:@std/cli@^1.0.19": "1.0.19",
+    "jsr:@std/path@*": "1.1.0",
     "jsr:@std/yaml@*": "1.0.7",
     "npm:zod@3": "3.25.56",
     "npm:zod@^3.25.56": "3.25.56"
@@ -17,6 +18,9 @@
     },
     "@std/cli@1.0.19": {
       "integrity": "b3601a54891f89f3f738023af11960c4e6f7a45dc76cde39a6861124cba79e88"
+    },
+    "@std/path@1.1.0": {
+      "integrity": "ddc94f8e3c275627281cbc23341df6b8bcc874d70374f75fec2533521e3d6886"
     },
     "@std/yaml@1.0.7": {
       "integrity": "b4b9f6a625a6827ca2b75a3d240558b5ffd8b9a29945ec7614871be7b711a10a"

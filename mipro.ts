@@ -12,46 +12,7 @@
  * exploration until it has enough samples to fit the model, then it steadily shifts toward exploitation.
  */
 
-/* ------------------------------- Types and utils ------------------------------- */
-
-export interface Example {
-  input: string;
-  output: string;
-}
-
-export interface Prompt {
-  instruction: string;
-  examples: Example[];
-}
-
-export interface Pipeline<T, TStages extends string = string> {
-  /**
-   * Execute the pipeline on a single piece of input data with the supplied prompts and return the model output.
-   */
-  run(input: unknown, prompts: Record<TStages, Prompt>): Promise<T>;
-
-  /**
-   * The names of the stages in deterministic order so the optimiser can address them.
-   */
-  stageNames(): readonly TStages[];
-}
-
-/**
- * Evaluator returns a higher-is-better score for a batch of outputs.
- */
-export type Evaluator<T> = (outputs: T[]) => number;
-
-/**
- * Proposer returns a new Prompt for a given module when supplied with grounding context.
- */
-export interface ProposerContext<TStages extends string = string> {
-  stageName: TStages;
-  dataSummary: string;
-  programSummary: string;
-  pastAttempts: Array<{ prompt: Prompt; score: number }>;
-}
-
-export type Proposer<TStages extends string = string> = (ctx: ProposerContext<TStages>) => Promise<Prompt>;
+import { DataLoader, Evaluator, Pipeline, Prompt, Proposer, ProposerContext } from "@/types.ts";
 
 /* --------------------------------- Surrogate --------------------------------- */
 
@@ -130,25 +91,29 @@ export interface MIPROOptions {
 }
 
 export class MIPROv2<T, TStages extends string = string> {
+  private readonly loader: DataLoader;
   private readonly pipeline: Pipeline<T, TStages>;
   private readonly proposer: Proposer<TStages>;
   private readonly evaluator: Evaluator<T>;
-  private readonly data: unknown[];
   private readonly opts: Required<MIPROOptions>;
   private readonly history: Trial[] = [];
   private readonly surrogates: Record<string, Surrogate> = {};
+  private readonly initialPrompts: Record<TStages, Prompt>;
+  private data: unknown[] = [];
 
   constructor(
     pipeline: Pipeline<T, TStages>,
+    loader: DataLoader,
     proposer: Proposer<TStages>,
     evaluator: Evaluator<T>,
-    data: unknown[],
+    initialPrompts: Record<TStages, Prompt> = {} as Record<TStages, Prompt>,
     opts: MIPROOptions = {},
   ) {
     this.pipeline = pipeline;
+    this.loader = loader;
     this.proposer = proposer;
     this.evaluator = evaluator;
-    this.data = data;
+    this.initialPrompts = initialPrompts;
     this.opts = {
       maxIterations: opts.maxIterations ?? 100,
       batchSize: opts.batchSize ?? 8,
@@ -164,12 +129,14 @@ export class MIPROv2<T, TStages extends string = string> {
   /**
    * Optimise prompts for all modules and return the best set discovered.
    */
-  async compile(initialPrompts: Record<TStages, Prompt>): Promise<Record<TStages, Prompt>> {
-    let best: Trial = { iteration: -1, prompts: initialPrompts, score: -Infinity };
+  async compile(): Promise<Record<TStages, Prompt>> {
+    this.data = await this.loader();
+
+    let best: Trial = { iteration: -1, prompts: this.initialPrompts, score: -Infinity };
 
     for (let iter = 0; iter < this.opts.maxIterations; iter++) {
       const stage = this.selectStage();
-      const candidatePrompt = await this.proposePrompt(stage, best.prompts);
+      const candidatePrompt = await this.proposePrompt(stage, this.initialPrompts, best.prompts);
       const candidatePrompts = { ...best.prompts } as Record<TStages, Prompt>;
       candidatePrompts[stage] = candidatePrompt;
       const score = await this.evaluatePrompts(candidatePrompts);
@@ -205,7 +172,11 @@ export class MIPROv2<T, TStages extends string = string> {
     return this.pipeline.stageNames()[idx];
   }
 
-  private proposePrompt(stage: TStages, current: Record<TStages, Prompt>): Promise<Prompt> {
+  private proposePrompt(
+    stage: TStages,
+    initialPrompts: Record<TStages, Prompt>,
+    current: Record<TStages, Prompt>,
+  ): Promise<Prompt> {
     void current;
 
     const past = this.history.map((h) => ({ prompt: h.prompts[stage], score: h.score }));
@@ -214,6 +185,7 @@ export class MIPROv2<T, TStages extends string = string> {
       dataSummary: this.summariseData(),
       programSummary: this.summariseProgram(),
       pastAttempts: past,
+      initialPrompts,
     };
     return this.proposer(ctx);
   }
