@@ -12,7 +12,7 @@
  * exploration until it has enough samples to fit the model, then it steadily shifts toward exploitation.
  */
 
-import { DataLoader, Evaluator, Pipeline, Prompt, Proposer, ProposerContext } from "@/types.ts";
+import { DataLoader, Evaluator, Outputter, Pipeline, Prompt, Proposer, ProposerContext } from "@/types.ts";
 
 /* --------------------------------- Surrogate --------------------------------- */
 
@@ -99,7 +99,7 @@ export class MIPROv2<T, TStages extends string = string> {
   private readonly history: Trial[] = [];
   private readonly surrogates: Record<string, Surrogate> = {};
   private readonly initialPrompts: Record<TStages, Prompt>;
-  private readonly outputter: (prompts: Record<TStages, Prompt>) => void;
+  private readonly outputter: Outputter<TStages>;
   private data: unknown[] = [];
 
   constructor(
@@ -108,7 +108,7 @@ export class MIPROv2<T, TStages extends string = string> {
     proposer: Proposer<TStages>,
     evaluator: Evaluator<T>,
     initialPrompts: Record<TStages, Prompt> = {} as Record<TStages, Prompt>,
-    outputter: (prompts: Record<TStages, Prompt>) => void = () => {},
+    outputter: Outputter<TStages>,
     opts: MIPROOptions = {},
   ) {
     this.pipeline = pipeline;

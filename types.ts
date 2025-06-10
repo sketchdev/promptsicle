@@ -48,3 +48,5 @@ export interface ProposerContext<TStages extends string = string> {
 }
 
 export type Proposer<TStages extends string = string> = (ctx: ProposerContext<TStages>) => Promise<Prompt>;
+
+export type Outputter<T extends string = string> = (prompts: Record<T, Prompt>) => void;
