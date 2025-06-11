@@ -137,8 +137,16 @@ export class MIPROv2<T, TStages extends string = string> {
    * Optimise prompts for all modules and return the best set discovered.
    */
   async optimize(options: { earlyStopThreshold?: number } = {}): Promise<void> {
-    const earlyStopThreshold = options.earlyStopThreshold ?? 0.95;
+    const earlyStopThreshold = options.earlyStopThreshold ?? 0.9;
     this.data = await this.loader();
+
+    console.log("\n");
+    console.log(`📊 Dataset: ${this.data.length} items`);
+    console.log(`🎯 Stages: ${this.stages.join(", ")}`);
+    console.log(`🔄 Max iterations: ${this.opts.maxIterations}`);
+    console.log(`📦 Batch size: ${this.opts.batchSize}`);
+    console.log(`🎲 Random seed: ${this.opts.randomSeed}`);
+    console.log(`🏁 Early stop threshold: ${earlyStopThreshold}\n`);
 
     const startingPrompts: Record<TStages, Prompt> = {} as Record<TStages, Prompt>;
     for (const initialPrompt of Object.entries(this.initialPrompts)) {
