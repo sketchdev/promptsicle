@@ -36,9 +36,7 @@ export function multiStageRunner(
   return async function (item: Item, prompts: Record<string, Prompt>): Promise<RunnerOutput> {
     traceLog(`multi-stage: running for item: "${item.text}"`);
 
-    const output: string[] = [];
-
-    for (const stage of stages) {
+    const stagePromises = stages.map(async (stage, index) => {
       traceLog(`running stage: ${stage}`);
       const prompt = prompts[stage];
       const resp = await create({
@@ -54,8 +52,14 @@ export function multiStageRunner(
         temperature: params.temperature ?? 0,
       });
 
-      output.push(resp.trim());
-    }
+      return { index, output: resp.trim() };
+    });
+
+    const results = await Promise.all(stagePromises);
+
+    const output = results
+      .sort((a, b) => a.index - b.index)
+      .map((result) => result.output);
 
     return { predicted: output.join("\n"), target: item.target };
   };
