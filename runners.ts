@@ -6,7 +6,7 @@ export function singleStageRunner(
   params: { model?: string; temperature?: number } = {},
 ): Runner<RunnerOutput, "generate"> {
   return async function (item: Item, prompts: Record<"generate", Prompt>): Promise<RunnerOutput> {
-    traceLog(`pipeline running for item: "${item.text}"`);
+    traceLog(`running for item: "${item.text.slice(0, 50)}..."`);
 
     const { instruction, examples } = prompts.generate;
 
@@ -34,7 +34,7 @@ export function multiStageRunner(
   params: { model?: string; temperature?: number } = {},
 ): Runner<RunnerOutput, typeof stages[number]> {
   return async function (item: Item, prompts: Record<string, Prompt>): Promise<RunnerOutput> {
-    traceLog(`multi-stage: running for item: "${item.text}"`);
+    traceLog(`running for item: "${item.text.slice(0, 50)}..." with stages: ${stages.join(", ")}`);
 
     const stagePromises = stages.map(async (stage, index) => {
       traceLog(`running stage: ${stage}`);
