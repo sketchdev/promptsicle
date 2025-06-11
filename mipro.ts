@@ -135,7 +135,8 @@ export class MIPROv2<T, TStages extends string = string> {
   /**
    * Optimise prompts for all modules and return the best set discovered.
    */
-  async optimize(): Promise<void> {
+  async optimize(options: { earlyStopThreshold?: number } = {}): Promise<void> {
+    const earlyStopThreshold = options.earlyStopThreshold ?? 0.95;
     this.data = await this.loader();
 
     const startingPrompts: Record<TStages, Prompt> = {} as Record<TStages, Prompt>;
@@ -167,6 +168,11 @@ export class MIPROv2<T, TStages extends string = string> {
       if (score > best.score) {
         best = trial;
         console.log(`MIPROv2 improved to ${score.toFixed(4)} at iteration ${iter}`);
+
+        if (score >= earlyStopThreshold) {
+          console.log(`MIPROv2 reached target score of ${earlyStopThreshold}, stopping early at iteration ${iter}`);
+          break;
+        }
       }
     }
 
