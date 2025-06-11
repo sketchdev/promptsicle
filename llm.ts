@@ -20,6 +20,7 @@ export async function structured<T extends ZodRawShape>(
     temperature?: number;
     format: ZodObject<T>;
     formatName: string;
+    timeout?: number;
   },
 ) {
   const req: OpenAI.Responses.ResponseCreateParamsNonStreaming = {
@@ -33,7 +34,7 @@ export async function structured<T extends ZodRawShape>(
   if (params.temperature !== undefined) {
     req.temperature = params.temperature;
   }
-  const resp = await openai.responses.parse(req);
+  const resp = await openai.responses.parse(req, { timeout: params.timeout ?? 60_000 });
   if (!resp.output_parsed) {
     console.error("Failed to parse response from OpenAI", resp);
     return null;
@@ -46,6 +47,7 @@ export async function create(params: {
   instructions: string;
   input: OpenAI.Responses.ResponseInput;
   temperature?: number;
+  timeout?: number;
 }) {
   const req: OpenAI.Responses.ResponseCreateParamsNonStreaming = {
     model: "gpt-4o-mini",
@@ -59,6 +61,6 @@ export async function create(params: {
     model: "gpt-4o-mini",
     instructions: params.instructions,
     input: params.input,
-  });
+  }, { timeout: params.timeout ?? 60_000 });
   return resp.output_text;
 }
