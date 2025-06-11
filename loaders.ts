@@ -26,7 +26,7 @@ export function yamlFileLoader(dir: string): DataLoader {
   };
 }
 
-export function docxFileLoader(dir: string): DataLoader {
+export function docxFileLoader(dir: string, options: { instructions?: string } = {}): DataLoader {
   return async (): Promise<Item[]> => {
     const data: Item[] = [];
 
@@ -38,8 +38,8 @@ export function docxFileLoader(dir: string): DataLoader {
         const convertResult = await mammoth.convertToHtml({ buffer });
         const htmlContent = convertResult.value.replace(/<img[^>]*>/g, ""); // Remove images from HTML content
         const resp = await structured({
-          instructions:
-            "Summarize the content of this document, and produce a two sentence prompt that a user might type to create the resulting document.",
+          instructions: options.instructions ??
+            "Produce a LLM prompt that a user might type to create the resulting document.",
           input: [{ role: "user" as const, content: htmlContent }],
           format: z.object({ prompt: z.string() }),
           formatName: "summary",

@@ -99,7 +99,7 @@ export class MIPROv2<T, TStages extends string = string> {
   private readonly opts: Required<MIPROOptions>;
   private readonly history: Trial[] = [];
   private readonly surrogates: Record<string, Surrogate> = {};
-  private readonly initialPrompts: Record<TStages, Prompt>;
+  private readonly initialPrompts: Record<string, string> | Record<TStages, Prompt>;
   private readonly outputter: Outputter<TStages>;
   private data: Item[] = [];
 
@@ -118,9 +118,7 @@ export class MIPROv2<T, TStages extends string = string> {
     this.loader = loader;
     this.proposer = proposer;
     this.evaluator = evaluator;
-
     this.initialPrompts = initialPrompts;
-
     this.outputter = outputter;
     this.opts = {
       maxIterations: opts.maxIterations ?? 100,
@@ -140,11 +138,24 @@ export class MIPROv2<T, TStages extends string = string> {
   async optimize(): Promise<void> {
     this.data = await this.loader();
 
-    let best: Trial = { iteration: -1, prompts: this.initialPrompts, score: -Infinity };
+    const startingPrompts: Record<TStages, Prompt> = {} as Record<TStages, Prompt>;
+    for (const initialPrompt of Object.entries(this.initialPrompts)) {
+      const [stage, prompt] = initialPrompt;
+      if (prompt && typeof prompt === "string") {
+        startingPrompts[stage as TStages] = {
+          instruction: prompt as string,
+          examples: [],
+        };
+      } else {
+        startingPrompts[stage as TStages] = prompt;
+      }
+    }
+
+    let best: Trial = { iteration: -1, prompts: startingPrompts, score: -Infinity };
 
     for (let iter = 0; iter < this.opts.maxIterations; iter++) {
       const stage = this.selectStage();
-      const candidatePrompt = await this.proposePrompt(stage, this.initialPrompts, best.prompts);
+      const candidatePrompt = await this.proposePrompt(stage, startingPrompts, best.prompts);
       const candidatePrompts = { ...best.prompts } as Record<TStages, Prompt>;
       candidatePrompts[stage] = candidatePrompt;
       const score = await this.evaluatePrompts(candidatePrompts);

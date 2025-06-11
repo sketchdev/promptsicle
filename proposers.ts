@@ -28,7 +28,8 @@ export function llmProposer<TStages extends string = string>(task: Record<TStage
     systemPrompt = `your goal is to improve prompts for the given task (${task[stageName]}) based on past performance.
     
 analyze past prompt performance and the provided output examples to try and determine what makes a good prompt for this task.
-think about why previous prompts succeeded or failed, and how you can improve clarity, specificity, and handling of edge cases.`;
+think about why previous prompts succeeded or failed, and how you can improve clarity, specificity, and handling of edge cases.
+the goal is to achieve higher accuracy than previous attempts by generating a new prompt that produces content that is closer to matching a cosine similarity of 1.0 with the target content.`;
 
     userPrompt = `task: ${task[stageName]}
 
