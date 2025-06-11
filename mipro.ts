@@ -102,6 +102,7 @@ export class MIPROv2<T, TStages extends string = string> {
   private readonly initialPrompts: Record<string, string> | Record<TStages, Prompt>;
   private readonly outputter: Outputter<TStages>;
   private data: Item[] = [];
+  private readonly executedStages: Set<TStages> = new Set();
 
   constructor(
     stages: TStages[],
@@ -156,6 +157,7 @@ export class MIPROv2<T, TStages extends string = string> {
 
     for (let iter = 0; iter < this.opts.maxIterations; iter++) {
       const stage = this.selectStage();
+      this.executedStages.add(stage);
       const candidatePrompt = await this.proposePrompt(stage, startingPrompts, best.prompts);
       const candidatePrompts = { ...best.prompts } as Record<TStages, Prompt>;
       candidatePrompts[stage] = candidatePrompt;
@@ -182,7 +184,14 @@ export class MIPROv2<T, TStages extends string = string> {
   /* ----------------------------- Internals ----------------------------- */
 
   private selectStage(): TStages {
-    // Use surrogate utilities to build a categorical distribution over stages.
+    // prioritize stages that haven't been executed yet
+    const unexecutedStages = this.stages.filter((stage) => !this.executedStages.has(stage));
+    if (unexecutedStages.length > 0) {
+      const idx = Math.floor(Math.random() * unexecutedStages.length);
+      return unexecutedStages[idx];
+    }
+
+    // all stages have been executed at least once, use surrogate utilities
     const utils = this.stages.map((stage) => {
       const lastScore = this.history.length ? this.history[this.history.length - 1].score : 0;
       return this.surrogates[stage].utility(lastScore);
