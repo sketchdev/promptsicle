@@ -109,7 +109,7 @@ export class MIPROv2<T, TStages extends string = string> {
     loader: DataLoader,
     proposer: Proposer<TStages>,
     evaluator: Evaluator<T[]>,
-    initialPrompts: Record<TStages, Prompt> = {} as Record<TStages, Prompt>,
+    initialPrompts: Record<string, string> | Record<TStages, Prompt> = {} as Record<TStages, Prompt>,
     outputter: Outputter<TStages>,
     opts: MIPROOptions = {},
   ) {
@@ -118,7 +118,9 @@ export class MIPROv2<T, TStages extends string = string> {
     this.loader = loader;
     this.proposer = proposer;
     this.evaluator = evaluator;
+
     this.initialPrompts = initialPrompts;
+
     this.outputter = outputter;
     this.opts = {
       maxIterations: opts.maxIterations ?? 100,

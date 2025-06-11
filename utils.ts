@@ -32,3 +32,34 @@ export function singleStagePromptBuilder(
     generate: promptBuilder(instruction, examples),
   };
 }
+
+export async function withBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000,
+): Promise<T> {
+  let lastError: Error;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+
+      if (attempt === maxRetries) {
+        throw lastError;
+      }
+
+      traceLog("An error occurred, retrying with backoff", {
+        attempt,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // exponential backoff with jitter
+      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError!;
+}
