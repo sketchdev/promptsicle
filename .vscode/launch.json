@@ -13,7 +13,6 @@
       "runtimeExecutable": "/usr/local/bin/deno",
       "runtimeArgs": [
         "run",
-        "--unstable",
         "--inspect",
         "--allow-all"
       ],

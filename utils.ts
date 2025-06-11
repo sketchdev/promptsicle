@@ -23,3 +23,12 @@ export function promptBuilder(
       : [],
   };
 }
+
+export function singleStagePromptBuilder(
+  instruction: string,
+  examples?: Record<string, unknown>[],
+): Record<"generate", Prompt> {
+  return {
+    generate: promptBuilder(instruction, examples),
+  };
+}
