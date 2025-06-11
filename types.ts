@@ -5,7 +5,7 @@ export interface Configuration {
 
 export type DataLoader = () => Promise<Item[]>;
 
-export type PipelineOutput = { predicted: string; target: string };
+export type RunnerOutput = { predicted: string; target: string };
 
 export type Item = { text: string; target: string };
 
@@ -34,7 +34,7 @@ export interface Pipeline<T, TStages extends string = string> {
 /**
  * Evaluator returns a higher-is-better score for a batch of outputs.
  */
-export type Evaluator<T> = (outputs: T[]) => Promise<number>;
+export type Evaluator<T> = (outputs: T) => Promise<number>;
 
 /**
  * Proposer returns a new Prompt for a given module when supplied with grounding context.

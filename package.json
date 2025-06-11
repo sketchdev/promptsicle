@@ -12,6 +12,7 @@
     "compile": "npm run compile:mac && npm run compile:linux && npm run compile:windows"
   },
   "dependencies": {
+    "mammoth": "^1.9.1",
     "zod": "^3.25.56"
   }
 }

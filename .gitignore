@@ -13,3 +13,6 @@ next-env.d.ts
 bin/darwin/promptsicle
 bin/linux/promptsicle
 bin/win/promptsicle.exe
+
+# certain examples
+examples/sow

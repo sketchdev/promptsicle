@@ -11,7 +11,7 @@ export default async function recipe() {
     ["generate"],
     singleStageRunner(),
     yamlFileLoader("./examples/recipe/data"),
-    llmProposer("recipe generation"),
+    llmProposer({ generate: "recipe generation" }),
     semanticEvaluator,
     singleStagePromptBuilder("Create a recipe for the dish provided"),
     consoleOutputter,

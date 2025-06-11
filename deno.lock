@@ -39,6 +39,7 @@
     ],
     "packageJson": {
       "dependencies": [
+        "npm:mammoth@^1.9.1",
         "npm:zod@^3.25.56"
       ]
     }

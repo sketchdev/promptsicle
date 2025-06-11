@@ -95,7 +95,7 @@ export class MIPROv2<T, TStages extends string = string> {
   private readonly stages: TStages[];
   private readonly runner: Runner<T, TStages>;
   private readonly proposer: Proposer<TStages>;
-  private readonly evaluator: Evaluator<T>;
+  private readonly evaluator: Evaluator<T[]>;
   private readonly opts: Required<MIPROOptions>;
   private readonly history: Trial[] = [];
   private readonly surrogates: Record<string, Surrogate> = {};
@@ -108,7 +108,7 @@ export class MIPROv2<T, TStages extends string = string> {
     runner: Runner<T, TStages>,
     loader: DataLoader,
     proposer: Proposer<TStages>,
-    evaluator: Evaluator<T>,
+    evaluator: Evaluator<T[]>,
     initialPrompts: Record<TStages, Prompt> = {} as Record<TStages, Prompt>,
     outputter: Outputter<TStages>,
     opts: MIPROOptions = {},
@@ -199,7 +199,7 @@ export class MIPROv2<T, TStages extends string = string> {
 
   private async evaluatePrompts(prompts: Record<TStages, Prompt>): Promise<number> {
     const batch = sampleArray(this.data, this.opts.batchSize);
-    const outputs: T[] = [];
+    const outputs = [];
     for (const item of batch) {
       const x = await this.runner(item, prompts);
       outputs.push(x);

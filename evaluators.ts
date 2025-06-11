@@ -1,9 +1,9 @@
 import { embedding, structured } from "@/llm.ts";
-import { Evaluator, PipelineOutput } from "@/types.ts";
+import { Evaluator, RunnerOutput } from "@/types.ts";
 import { traceLog } from "@/utils.ts";
 import z from "zod";
 
-export const semanticEvaluator: Evaluator<PipelineOutput> = async (outs: PipelineOutput[]) => {
+export const semanticEvaluator: Evaluator<RunnerOutput[]> = async (outs: RunnerOutput[]) => {
   traceLog("starting semantic evaluation");
   let totalSimilarity = 0;
 
@@ -29,7 +29,7 @@ export const semanticEvaluator: Evaluator<PipelineOutput> = async (outs: Pipelin
   return avgSimilarity;
 };
 
-const llmEvaluator: Evaluator<PipelineOutput> = async (outs: PipelineOutput[]) => {
+const llmEvaluator: Evaluator<RunnerOutput[]> = async (outs: RunnerOutput[]) => {
   traceLog("starting llm-based evaluation");
   let totalScore = 0;
 
@@ -64,7 +64,7 @@ return a score from 0.0 to 1.0 where 1.0 means the predicted content is as good 
   return avgScore;
 };
 
-const hybridRecipeEvaluator: Evaluator<PipelineOutput> = async (outs: PipelineOutput[]) => {
+const hybridRecipeEvaluator: Evaluator<RunnerOutput[]> = async (outs: RunnerOutput[]) => {
   traceLog("starting hybrid evaluation");
 
   // structural completeness check
