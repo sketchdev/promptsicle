@@ -29,7 +29,7 @@ export function singleStageRunner(
   };
 }
 
-export function multiStageRunner(
+export function concatRunner(
   stages: string[],
   params: { model?: string; temperature?: number } = {},
 ): Runner<RunnerOutput, typeof stages[number]> {

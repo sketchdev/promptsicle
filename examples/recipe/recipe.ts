@@ -8,12 +8,12 @@ import { singleStagePromptBuilder } from "@/utils.ts";
 
 export default async function recipe() {
   const mipro = new MIPROv2(
-    ["generate"],
-    singleStageRunner(),
     yamlFileLoader("./examples/recipe/data"),
-    llmProposer({ generate: "recipe generation" }),
-    semanticEvaluator,
+    ["generate"],
     singleStagePromptBuilder("Create a recipe for the dish provided"),
+    llmProposer({ generate: "recipe generation" }),
+    singleStageRunner(),
+    semanticEvaluator,
     consoleOutputter,
     { maxIterations: 5, batchSize: 3 },
   );

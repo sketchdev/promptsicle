@@ -25,13 +25,16 @@ export function llmProposer<TStages extends string = string>(task: Record<TStage
 
     traceLog("analyzing past attempts", { bestScore, worstScore, attemptCount: pastAttempts.length });
 
-    systemPrompt = `your goal is to improve prompts for the given task (${task[stageName]}) based on past performance.
+    systemPrompt = `
+your goal is to improve system instructions (prompts) for the given task (${task[stageName]}) based on past performance.
     
 analyze past prompt performance and the provided output examples to try and determine what makes a good prompt for this task.
 think about why previous prompts succeeded or failed, and how you can improve clarity, specificity, and handling of edge cases.
-the goal is to achieve higher accuracy than previous attempts by generating a new prompt that produces content that is closer to matching a cosine similarity of 1.0 with the target content.`;
+the goal is to achieve higher accuracy than previous attempts by generating a new prompt that produces content that is closer to matching a cosine similarity of 1.0 with the target content.`
+      .trim();
 
-    userPrompt = `task: ${task[stageName]}
+    userPrompt = `
+task: ${task[stageName]}
 
 past prompt performance:
 ${performanceAnalysis}
@@ -43,14 +46,13 @@ best score so far: ${bestScore.toFixed(3)}
 worst score so far: ${worstScore.toFixed(3)}
 
 generate a new, improved system instruction that will achieve higher accuracy than previous attempts. 
+include few-shot examples in the system instructions to help steer the model towards better performance.
 focus on clarity, specificity, and handling edge cases. 
-respond with just the instruction text, no explanation.`;
+respond with just the instruction text, no explanation.`.trim();
 
     const response = await structured({
-      model: "gpt-4o-mini",
       instructions: systemPrompt,
       input: [{ role: "user" as const, content: userPrompt }],
-      temperature: 0.8,
       format: z.object({ new_instruction: z.string() }),
       formatName: "result",
     });

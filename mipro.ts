@@ -105,21 +105,21 @@ export class MIPROv2<T, TStages extends string = string> {
   private readonly executedStages: Set<TStages> = new Set();
 
   constructor(
-    stages: TStages[],
-    runner: Runner<T, TStages>,
     loader: DataLoader,
-    proposer: Proposer<TStages>,
-    evaluator: Evaluator<T[]>,
+    stages: TStages[],
     initialPrompts: Record<string, string> | Record<TStages, Prompt> = {} as Record<TStages, Prompt>,
+    proposer: Proposer<TStages>,
+    runner: Runner<T, TStages>,
+    evaluator: Evaluator<T[]>,
     outputter: Outputter<TStages>,
     opts: MIPROOptions = {},
   ) {
-    this.stages = stages;
-    this.runner = runner;
     this.loader = loader;
-    this.proposer = proposer;
-    this.evaluator = evaluator;
+    this.stages = stages;
     this.initialPrompts = initialPrompts;
+    this.proposer = proposer;
+    this.runner = runner;
+    this.evaluator = evaluator;
     this.outputter = outputter;
     this.opts = {
       maxIterations: opts.maxIterations ?? 100,
@@ -136,7 +136,7 @@ export class MIPROv2<T, TStages extends string = string> {
   /**
    * Optimise prompts for all modules and return the best set discovered.
    */
-  async optimize(options: { earlyStopThreshold?: number } = {}): Promise<void> {
+  async optimize(options: { earlyStopThreshold?: number } = {}): Promise<Record<TStages, Prompt>> {
     const earlyStopThreshold = options.earlyStopThreshold ?? 0.9;
     this.data = await this.loader();
 
@@ -187,6 +187,7 @@ export class MIPROv2<T, TStages extends string = string> {
     }
 
     this.outputter(best.prompts);
+    return best.prompts;
   }
 
   /* ----------------------------- Internals ----------------------------- */
