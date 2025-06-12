@@ -1,5 +1,5 @@
 import { parseArgs } from "jsr:@std/cli/parse-args";
-import statementOfWork from "./examples/sow/sow.ts";
+import { singleStageStatementOfWork } from "./examples/sow/sow.ts";
 
 const args = parseArgs(Deno.args, {
   alias: {
@@ -16,7 +16,7 @@ if (args.help) {
   Deno.exit(0);
 }
 
-await statementOfWork();
+await singleStageStatementOfWork();
 // await recipe();
 // await run(config.trainFolder, config.testFolder);
 console.log("promptsicle completed successfully.");

@@ -137,7 +137,7 @@ export class MIPROv2<T, TStages extends string = string> {
    * Optimise prompts for all modules and return the best set discovered.
    */
   async optimize(options: { earlyStopThreshold?: number } = {}): Promise<Record<TStages, Prompt>> {
-    const earlyStopThreshold = options.earlyStopThreshold ?? 0.9;
+    const earlyStopThreshold = options.earlyStopThreshold ?? 1;
     const startTime = Date.now();
     this.data = await this.loader();
 
