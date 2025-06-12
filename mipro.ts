@@ -138,6 +138,7 @@ export class MIPROv2<T, TStages extends string = string> {
    */
   async optimize(options: { earlyStopThreshold?: number } = {}): Promise<Record<TStages, Prompt>> {
     const earlyStopThreshold = options.earlyStopThreshold ?? 0.9;
+    const startTime = Date.now();
     this.data = await this.loader();
 
     console.log("\n");
@@ -185,6 +186,10 @@ export class MIPROv2<T, TStages extends string = string> {
         }
       }
     }
+
+    const endTime = Date.now();
+    const totalTime = (endTime - startTime) / 1000;
+    console.log(`\n⏱️  Total optimization time: ${totalTime.toFixed(2)}s`);
 
     this.outputter(best.prompts);
     return best.prompts;
