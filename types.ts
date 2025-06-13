@@ -52,3 +52,18 @@ export type Proposer<TStages extends string = string> = (ctx: ProposerContext<TS
 export type Runner<T, TStages extends string = string> = (item: Item, prompts: Record<TStages, Prompt>) => Promise<T>;
 
 export type Outputter<T extends string = string> = (prompts: Record<T, Prompt>) => void;
+
+export interface EdgePrompt {
+  instructions: string;
+  score: number;
+}
+
+export interface EdgeResult {
+  predicted: string;
+  target: string;
+}
+
+export type EdgeOptimizer = (prompts: EdgePrompt[], data: Item[]) => Promise<string>;
+export type EdgeRunner = (item: Item, prompt: EdgePrompt) => Promise<string>;
+export type EdgeEvaluator = (results: EdgeResult[]) => Promise<number>;
+export type EdgeOutputter = (bestPrompt: EdgePrompt) => void;

@@ -10,5 +10,6 @@
     "editor.defaultFormatter": "denoland.vscode-deno"
   },
   "typescript.preferences.importModuleSpecifier": "non-relative",
-  "javascript.preferences.importModuleSpecifier": "non-relative"
+  "javascript.preferences.importModuleSpecifier": "non-relative",
+  "deno.importMap": "./deno.json"
 }

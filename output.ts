@@ -1,5 +1,14 @@
-import { Prompt } from "@/types.ts";
+import { EdgePrompt, Prompt } from "@/types.ts";
 import { stringify } from "jsr:@std/yaml";
+
+export const edgeStringOutputter = (options: { filePath?: string } = {}) => (bestPrompt: EdgePrompt) => {
+  if (options.filePath) {
+    return Deno.writeFile(options.filePath, new TextEncoder().encode(bestPrompt.instructions));
+  } else {
+    console.log("Best prompts:");
+    console.log(bestPrompt.instructions);
+  }
+};
 
 export function consoleOutputter(best: Record<string, Prompt>) {
   Object.entries(best).forEach(([stage, prompt]) => {
