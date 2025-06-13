@@ -59,6 +59,7 @@ export interface EdgePrompt {
 }
 
 export interface EdgeResult {
+  prompt: EdgePrompt;
   predicted: string;
   target: string;
 }

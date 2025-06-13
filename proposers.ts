@@ -4,7 +4,8 @@ import z from "zod";
 import { structured } from "./llm.ts";
 
 export const llmOptimizer =
-  (goal: string, options: { model?: string } = {}) => async (prompts: EdgePrompt[], data: Item[]): Promise<string> => {
+  (goal: string, scoreTechnique: string, options: { model?: string } = {}) =>
+  async (prompts: EdgePrompt[], data: Item[]): Promise<string> => {
     traceLog("optimizer called");
 
     let systemPrompt = "";
@@ -23,7 +24,6 @@ export const llmOptimizer =
 
     systemPrompt = `
 your goal is to improve system instructions (llm prompt) for the given task based on past performance.
-
 analyze the best attempts and determine what changes are needed to improve the prompt so that score is better than the best score so far.
 use the provided examples of target outputs to understand how to change the prompt to achieve a higher score.
 include real-world "few-shot" examples in the resulting prompt so the model can produce the desired output.
@@ -31,16 +31,19 @@ do not explain why the change was made.
 respond with just the instruction text.`.trim();
 
     userPrompt = `
-generate a new, improved system instruction that will achieve much higher score than previous attempts. 
+generate a new, improved system instruction that will achieve much a higher score than previous attempts. 
 
 goal:
 ${goal}
+
+scoring technique:
+${scoreTechnique}
 
 best instructions so far:
 ${JSON.stringify(bestAttempts(3), null, 2)}
 
 examples of target outputs:
-${data.map((d) => d.target)}`.trim();
+${data.slice(0, 3).map((d) => d.target)}`.trim();
 
     const response = await structured({
       model: options.model ?? "gpt-4o-mini",

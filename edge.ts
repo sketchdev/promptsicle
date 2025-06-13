@@ -57,7 +57,14 @@ export class Edge {
         -Infinity,
       );
 
-      const score = await this.evaluatePrompt(this.promptHistory[this.promptHistory.length - 1]);
+      const batch = sampleArray(this.data, this.opts.batchSize);
+      const outputs: EdgeResult[] = [];
+      for (const item of batch) {
+        const x = await this.runner(item, this.promptHistory[this.promptHistory.length - 1]);
+        outputs.push({ prompt: this.promptHistory[this.promptHistory.length - 1], predicted: x, target: item.target });
+      }
+      const score = await this.evaluator(outputs);
+
       this.promptHistory[this.promptHistory.length - 1].score = score;
 
       if (score > bestScoreBefore) {
@@ -79,16 +86,6 @@ export class Edge {
     const bestPrompt = this.promptHistory.reduce((best, current) => current.score > best.score ? current : best);
     this.outputter(bestPrompt);
     return bestPrompt;
-  }
-
-  private async evaluatePrompt(prompt: EdgePrompt): Promise<number> {
-    const batch = sampleArray(this.data, this.opts.batchSize);
-    const outputs: EdgeResult[] = [];
-    for (const item of batch) {
-      const x = await this.runner(item, prompt);
-      outputs.push({ predicted: x, target: item.target });
-    }
-    return this.evaluator(outputs);
   }
 }
 
