@@ -90,7 +90,7 @@ export class Edge {
 
       // only generate new prompt if we have more iterations to go
       if (iter < this.opts.maxIterations - 1) {
-        const newPrompt = await this.optimizer(this.history);
+        const newPrompt = await this.optimizer(this.history, this.data);
         this.promptHistory.push({ instructions: newPrompt, score: -Infinity });
       }
     }

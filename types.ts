@@ -71,7 +71,7 @@ export interface EdgeHistoryItem {
   target: string;
 }
 
-export type EdgeOptimizer = (history: EdgeHistoryItem[]) => Promise<string>;
+export type EdgeOptimizer = (history: EdgeHistoryItem[], data: Item[]) => Promise<string>;
 export type EdgeRunner = (item: Item, prompt: EdgePrompt) => Promise<string>;
 export type EdgeEvaluator = (results: EdgeResult[]) => Promise<number>;
 export type EdgeOutputter = (bestPrompt: EdgePrompt) => void;

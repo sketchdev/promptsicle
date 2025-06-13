@@ -2,7 +2,7 @@ import { semanticEvaluator } from "@/evaluators.ts";
 import { yamlFileLoader } from "@/loaders.ts";
 import { MIPROv2 } from "@/mipro.ts";
 import { consoleOutputter } from "@/output.ts";
-import { llmProposer } from "@/proposers.ts";
+import { llmProposer } from "../../optimizers.ts";
 import { singleStageRunner } from "@/runners.ts";
 import { singleStagePromptBuilder } from "@/utils.ts";
 
