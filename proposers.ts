@@ -1,4 +1,4 @@
-import { EdgeHistoryItem, Prompt, Proposer } from "@/types.ts";
+import { EdgeHistoryItem } from "@/types.ts";
 import { traceLog } from "@/utils.ts";
 import z from "zod";
 import { structured } from "./llm.ts";
@@ -16,6 +16,14 @@ export const llmOptimizer =
     const systemPrompt = `
 your goal is to improve system instructions (llm prompt) for the given task based on past performance.
 analyze the best attempts and determine what changes are needed to improve the prompt so that score is better than the best score so far.
+
+IMPORTANT CONSTRAINTS:
+- do not copy exact text from target outputs - this is overfitting
+- focus on general patterns and principles that work across different examples
+- create instructions that will generalize to unseen data
+- avoid memorizing specific examples or outputs
+- the prompt should teach the model HOW to approach the task, not give specific answers
+
 use the provided examples of target outputs to understand how to change the prompt to achieve a higher score.
 include real-world "few-shot" examples in the resulting prompt so the model can produce the desired output.
 do not explain why the change was made.
@@ -60,73 +68,3 @@ ${previousAttempts}`.trim();
 
     return newInstruction;
   };
-
-export function llmProposer<TStages extends string = string>(
-  task: Record<TStages, string>,
-  options: { model?: string } = {},
-): Proposer<TStages> {
-  return async ({ stageName, pastAttempts, dataSummary, initialPrompts }): Promise<Prompt> => {
-    traceLog(`proposer called for stage: ${stageName}`, { pastAttemptsCount: pastAttempts.length });
-
-    let systemPrompt = "";
-    let userPrompt = "";
-
-    if (pastAttempts.length === 0) {
-      // first iteration - just return the base prompt
-      return initialPrompts[stageName];
-    }
-
-    const bestAttempts = (n: number) => {
-      return pastAttempts
-        .sort((a, b) => b.score - a.score)
-        .slice(0, n);
-    };
-
-    const bestScore = Math.max(...pastAttempts.map((a) => a.score));
-    const worstScore = Math.min(...pastAttempts.map((a) => a.score));
-
-    traceLog("analyzing past attempts", { bestScore, worstScore, attemptCount: pastAttempts.length });
-
-    systemPrompt = `
-your goal is to improve system instructions (prompts) for the given task (${task[stageName]}) based on past performance.
-
-analyze the best and worst attempts and determine what changes are needed to improve the prompt so that score is better than the best score so far.
-use the provided examples of target outputs to understand how to change the prompt to achieve a higher score.
-include real-world "few-shot" examples in the resulting prompt so the model can produce the desired output.
-do not explain why the change was made.
-respond with just the instruction text.`.trim();
-
-    userPrompt = `
-generate a new, improved system instruction that will achieve much higher score than previous attempts. 
-
-task: 
-${task[stageName]}
-
-best instructions so far:
-${JSON.stringify(bestAttempts(3), null, 2)}
-
-examples of target outputs:
-${dataSummary}`.trim();
-
-    const response = await structured({
-      model: options.model ?? "gpt-4o-mini",
-      instructions: systemPrompt,
-      input: [{ role: "user" as const, content: userPrompt }],
-      format: z.object({ new_instruction: z.string() }),
-      formatName: "result",
-      // temperature: Math.max(0.1, 1 - pastAttempts.length * 0.1), // anneal learning rate
-    });
-
-    if (!response || !response.new_instruction) {
-      throw new Error("Failed to parse response from OpenAI");
-    }
-
-    const newInstruction = response.new_instruction;
-    traceLog("new prompt generated", { stage: stageName, instruction: newInstruction });
-
-    return {
-      instruction: newInstruction,
-      examples: [],
-    };
-  };
-}

@@ -1,5 +1,3 @@
-import { Prompt } from "@/types.ts";
-
 /** utility function for consistent trace logging */
 export function traceLog(message: string, data?: unknown) {
   const timestamp = new Date().toISOString().slice(11, 23);
@@ -9,29 +7,29 @@ export function traceLog(message: string, data?: unknown) {
   }
 }
 
-export function promptBuilder(
-  instruction: string,
-  examples?: Record<string, unknown>[],
-): Prompt {
-  return {
-    instruction,
-    examples: examples
-      ? examples.map((e) => ({
-        input: e.input as string,
-        output: e.output as string,
-      }))
-      : [],
-  };
-}
+// export function promptBuilder(
+//   instruction: string,
+//   examples?: Record<string, unknown>[],
+// ): Prompt {
+//   return {
+//     instruction,
+//     examples: examples
+//       ? examples.map((e) => ({
+//         input: e.input as string,
+//         output: e.output as string,
+//       }))
+//       : [],
+//   };
+// }
 
-export function singleStagePromptBuilder(
-  instruction: string,
-  examples?: Record<string, unknown>[],
-): Record<"generate", Prompt> {
-  return {
-    generate: promptBuilder(instruction, examples),
-  };
-}
+// export function singleStagePromptBuilder(
+//   instruction: string,
+//   examples?: Record<string, unknown>[],
+// ): Record<"generate", Prompt> {
+//   return {
+//     generate: promptBuilder(instruction, examples),
+//   };
+// }
 
 export async function withBackoff<T>(
   fn: () => Promise<T>,
