@@ -1,6 +1,7 @@
 import {
   DataLoader,
   EdgeEvaluator,
+  EdgeHistoryItem,
   EdgeOptimizer,
   EdgeOutputter,
   EdgePrompt,
@@ -17,6 +18,7 @@ export class Edge {
   private readonly outputter: EdgeOutputter;
   private readonly opts: { maxIterations: number; batchSize: number };
   private readonly promptHistory: EdgePrompt[] = [];
+  private readonly history: EdgeHistoryItem[] = [];
   private data: Item[] = [];
 
   constructor(
@@ -75,7 +77,18 @@ export class Edge {
         }
       }
 
-      const newPrompt = await this.optimizer(this.promptHistory, this.data);
+      const worstOutput = outputs.reduce((worst, current) =>
+        current.prompt.score < worst.prompt.score ? current : worst
+      );
+
+      this.history.push({
+        instructions: worstOutput.prompt.instructions,
+        score: worstOutput.prompt.score,
+        prediction: worstOutput.predicted,
+        target: worstOutput.target,
+      });
+
+      const newPrompt = await this.optimizer(this.history);
       this.promptHistory.push({ instructions: newPrompt, score: -Infinity });
     }
 
